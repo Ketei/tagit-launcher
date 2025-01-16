@@ -10,14 +10,21 @@ config_version=5
 
 [application]
 
-config/name="TagIt3Updater"
+config/name="TagIt"
+run/main_scene="res://launcher.tscn"
 config/use_custom_user_dir=true
 config/custom_user_dir_name="tagit3"
 config/auto_accept_quit=false
 config/features=PackedStringArray("4.3", "GL Compatibility")
+run/flush_stdout_on_print=true
 boot_splash/show_image=false
 config/icon="res://icons/application_icon.svg"
 config/windows_native_icon="res://application_icon.ico"
+
+[autoload]
+
+TagIt="*res://scripts/tagit_singleton.gd"
+ESixAPI="*res://scripts/e_six_requester.gd"
 
 [display]
 
@@ -26,6 +33,10 @@ window/size/viewport_height=240
 window/size/resizable=false
 window/size/borderless=true
 window/energy_saving/keep_screen_on=false
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot-sqlite/plugin.cfg", "res://addons/godotgif/plugin.cfg", "res://addons/tnowe_extra_controls/plugin.cfg")
 
 [rendering]
 
