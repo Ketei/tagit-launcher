@@ -1,0 +1,115 @@
+[gd_scene load_steps=5 format=3 uid="uid://bri5lrp7n8qv7"]
+
+[ext_resource type="Texture2D" uid="uid://4737mtooelqb" path="res://textures/app_logo.png" id="1_fitok"]
+[ext_resource type="Script" path="res://launcher_script.gd" id="1_k2llx"]
+[ext_resource type="Texture2D" uid="uid://b37hcod0i3pk5" path="res://textures/splash.png" id="3_e3jln"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_kywuw"]
+content_margin_left = 18.0
+content_margin_top = 10.0
+content_margin_right = 18.0
+content_margin_bottom = 10.0
+bg_color = Color(0.2225, 0.223875, 0.25, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[node name="Launcher" type="Control"]
+custom_minimum_size = Vector2(680, 240)
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_k2llx")
+
+[node name="MainPanel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_kywuw")
+
+[node name="MainContainer" type="HBoxContainer" parent="MainPanel"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="TagItLogo" type="TextureRect" parent="MainPanel/MainContainer"]
+layout_mode = 2
+texture = ExtResource("1_fitok")
+stretch_mode = 5
+
+[node name="DataContainer" type="VBoxContainer" parent="MainPanel/MainContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 15
+
+[node name="TitleLbl" type="Label" parent="MainPanel/MainContainer/DataContainer"]
+layout_mode = 2
+size_flags_vertical = 6
+theme_override_font_sizes/font_size = 50
+text = "TagIt"
+horizontal_alignment = 1
+
+[node name="MarginContainer" type="MarginContainer" parent="MainPanel/MainContainer/DataContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/margin_bottom = 10
+
+[node name="InfoContainer" type="VBoxContainer" parent="MainPanel/MainContainer/DataContainer/MarginContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+alignment = 2
+
+[node name="UpdateAvailableLbl" type="Label" parent="MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer"]
+layout_mode = 2
+text = "An update is available."
+horizontal_alignment = 1
+
+[node name="ButtonContainer" type="HBoxContainer" parent="MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="UpdateBtn" type="Button" parent="MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/ButtonContainer"]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Update"
+
+[node name="SkipBtn" type="Button" parent="MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/ButtonContainer"]
+custom_minimum_size = Vector2(120, 38)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Skip Update"
+
+[node name="IgnoreBtn" type="Button" parent="MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/ButtonContainer"]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Disable Updates"
+
+[node name="StatusLabel" type="Label" parent="MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.853, 1, 1)
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="UpdateRequester" type="HTTPRequest" parent="."]
+timeout = 10.0
+
+[node name="Splash" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("3_e3jln")
+expand_mode = 1
+stretch_mode = 5

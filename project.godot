@@ -1,0 +1,33 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="TagIt3Updater"
+config/use_custom_user_dir=true
+config/custom_user_dir_name="tagit3"
+config/auto_accept_quit=false
+config/features=PackedStringArray("4.3", "GL Compatibility")
+boot_splash/show_image=false
+config/icon="res://icons/application_icon.svg"
+config/windows_native_icon="res://application_icon.ico"
+
+[display]
+
+window/size/viewport_width=680
+window/size/viewport_height=240
+window/size/resizable=false
+window/size/borderless=true
+window/energy_saving/keep_screen_on=false
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
