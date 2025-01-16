@@ -2,7 +2,7 @@ extends Control
 
 
 var current_major: int = 3
-var current_minor: int = 0
+var current_minor: int = 1
 var current_patch: int = 0
 
 var new_major: int = current_major
@@ -10,6 +10,8 @@ var new_minor: int = current_minor
 var new_patch: int = current_patch
 
 var download_url: String = ""
+var downloading_pck: bool = false
+#var pck_byte_size: int = 0
 
 @onready var update_requester: HTTPRequest = $UpdateRequester
 @onready var update_btn: Button = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/ButtonContainer/UpdateBtn
@@ -19,15 +21,23 @@ var download_url: String = ""
 @onready var update_available_lbl: Label = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/UpdateAvailableLbl
 @onready var margin_container: MarginContainer = $MainPanel/MainContainer/DataContainer/MarginContainer
 @onready var main_panel: PanelContainer = $MainPanel
+@onready var download_progress: ProgressBar = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/PanelContainer/DownloadProgress
 
 
 func _ready() -> void:
+	set_process(false)
+	download_progress.visible = false
 	get_window().title = "TagIt!"
 	margin_container.visible = false
 	
 	await get_tree().create_timer(0.25).timeout
 	
 	var arguments: PackedStringArray = OS.get_cmdline_user_args()
+	
+	for arg in arguments:
+		if arg.begins_with("--update-launcher"):
+			update_launcher(arg.get_slice("=", 1))
+			break
 	
 	if arguments.has("--no-update") and FileAccess.file_exists(OS.get_executable_path().get_base_dir() + "/tagit.pck"):
 		load_tagger()
@@ -80,6 +90,11 @@ func _ready() -> void:
 	skip_btn.pressed.connect(_on_skip_pressed)
 	ignore_btn.pressed.connect(_on_dont_update_pressed)
 	update_requester.request_completed.connect(_on_request_completed)
+
+
+func _process(_delta: float) -> void:
+	if download_progress.value != update_requester.get_downloaded_bytes():
+		download_progress.value = update_requester.get_downloaded_bytes()
 
 
 func _notification(what: int) -> void:
@@ -146,10 +161,67 @@ func get_online_version() -> Array[int]:
 				for item: Dictionary in json_decoder.data["assets"]:
 					if item["name"] == "tagit.pck":
 						download_url = item["browser_download_url"]
+						download_progress.max_value = item["size"]
 						break
 				
 				return online_version
 	return Array([current_major, current_minor, current_patch], TYPE_INT, &"", null)
+
+
+func update_launcher(launcher_filename: String) -> void:
+	var launcher_http := HTTPRequest.new()
+	add_child(launcher_http)
+	launcher_http.timeout = 10.0
+	var error = launcher_http.request(
+		"https://api.github.com/repos/Ketei/tagit-launcher/releases/latest")
+	
+	var response = await launcher_http.request_completed
+	launcher_http.queue_free()
+	
+	if error == OK and response[0] == HTTPRequest.RESULT_SUCCESS and response[1] == 200:
+		var json_decoder = JSON.new()
+		json_decoder.parse(response[3].get_string_from_utf8())
+		
+		if typeof(json_decoder.data) != TYPE_DICTIONARY or not json_decoder.data.has("assets"):
+			TagIt.log_message("Couldn't update launcher.", DataManager.LogLevel.ERROR)
+			return
+		
+		var target_launcher: String = "tagit-launcher.bat" if launcher_filename.get_extension().to_lower() == "bat" else "tagit-launcher.sh"
+		
+		var launcher_url: String = ""
+		
+		for item: Dictionary in json_decoder.data["assets"]:
+			if item["name"] == target_launcher:
+				launcher_url = item["browser_download_url"]
+				break
+		
+		if launcher_url.is_empty():
+			return
+		
+		var base_dir: String = OS.get_executable_path().get_base_dir() + "/"
+		
+		var launcher_updater := HTTPRequest.new()
+		add_child(launcher_updater)
+		launcher_updater.timeout = 30.0
+		
+		launcher_updater.download_file = base_dir + "_launcher." + target_launcher.get_extension()
+		launcher_updater.request(launcher_url)
+		var results: Array = await launcher_updater.request_completed
+		
+		if results[0] != HTTPRequest.RESULT_SUCCESS or results[1] != 200:
+			TagIt.log_message(
+					str("Error downloading launcher: ", results[0], "/", results[1]),
+					DataManager.LogLevel.ERROR)
+			# Removing residual files on failure
+			if FileAccess.file_exists(base_dir + "_launcher." + target_launcher.get_extension()):
+				OS.move_to_trash(base_dir + "_launcher." + target_launcher.get_extension())
+		else:
+			DirAccess.rename_absolute(
+					base_dir + "_launcher." + target_launcher.get_extension(),
+					base_dir + target_launcher)
+			TagIt.log_message("Launcher updated successfully!", DataManager.LogLevel.INFO)
+		
+		launcher_updater.queue_free()
 
 
 func is_online_higher(online_major: int, online_minor: int, online_patch: int) -> bool:
@@ -165,12 +237,26 @@ func is_online_higher(online_major: int, online_minor: int, online_patch: int) -
 
 
 func _on_download_pressed() -> void:
-	update_btn.disabled = true
-	skip_btn.disabled = true
-	ignore_btn.disabled = true
-	status_label.text = "Dowloading Update..."
-	update_requester.download_file = OS.get_executable_path().get_base_dir() + "/_tagit.pck"
-	update_requester.request(download_url)
+	if downloading_pck:
+		if is_processing():
+			set_process(false)
+			download_progress.visible = false
+			download_progress.value = 0
+		update_requester.cancel_request()
+		download_progress.value = 0
+		update_btn.text = "Update"
+		skip_btn.disabled = true
+		ignore_btn.disabled = true
+	else:
+		update_btn.text = "Cancel"
+		skip_btn.disabled = true
+		ignore_btn.disabled = true
+		status_label.text = "Dowloading Update..."
+		if 0 < download_progress.max_value:
+			set_process(true)
+			download_progress.visible = true
+		update_requester.download_file = OS.get_executable_path().get_base_dir() + "/_tagit.pck"
+		update_requester.request(download_url)
 
 
 func _on_skip_pressed() -> void:
@@ -188,6 +274,8 @@ func _on_dont_update_pressed() -> void:
 
 
 func _on_request_completed(result: int, response_code: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
+	download_progress.value = download_progress.max_value
+	set_process(false)
 	if result != HTTPRequest.RESULT_SUCCESS or response_code != 200:
 		status_label.text = "Update Failed"
 		# Deleting residual files
