@@ -1,13 +1,13 @@
 extends Control
 
 
-const CURRENT_MAJOR: int = 3
-const CURRENT_MINOR: int = 0
-const CURRENT_PATCH: int = 0
+var current_major: int = 3
+var current_minor: int = 0
+var current_patch: int = 0
 
-var new_major: int = CURRENT_MAJOR
-var new_minor: int = CURRENT_MINOR
-var new_patch: int = CURRENT_PATCH
+var new_major: int = current_major
+var new_minor: int = current_minor
+var new_patch: int = current_patch
 
 var download_url: String = ""
 
@@ -18,20 +18,23 @@ var download_url: String = ""
 @onready var status_label: Label = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/StatusLabel
 @onready var update_available_lbl: Label = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/UpdateAvailableLbl
 @onready var margin_container: MarginContainer = $MainPanel/MainContainer/DataContainer/MarginContainer
-@onready var splash: TextureRect = $Splash
 @onready var main_panel: PanelContainer = $MainPanel
 
 
 func _ready() -> void:
+	get_window().title = "TagIt!"
 	margin_container.visible = false
-	splash.visible = false
+	
+	await get_tree().create_timer(0.25).timeout
 	
 	var arguments: PackedStringArray = OS.get_cmdline_user_args()
+	
 	if arguments.has("--no-update") and FileAccess.file_exists(OS.get_executable_path().get_base_dir() + "/tagit.pck"):
 		load_tagger()
 		return
 	
-	var version_file = FileAccess.open(OS.get_executable_path().get_basename() + "/version", FileAccess.READ)
+	var version_file = FileAccess.open(OS.get_executable_path().get_base_dir() + "/version", FileAccess.READ)
+	
 	var version_text: String = version_file.get_as_text().strip_edges().to_lower() if version_file != null else ""
 	
 	if not version_text.is_empty():
@@ -42,22 +45,21 @@ func _ready() -> void:
 			var split_string: PackedStringArray = version_text.split(".", false)
 			if split_string.size() == 3:
 				var version_idx: int = -1
-				var version_array: Array[int] = [CURRENT_MAJOR, CURRENT_MINOR, CURRENT_PATCH]
+				var version_array: Array[int] = [current_major, current_minor, current_patch]
 				for item in split_string:
 					version_idx += 1
 					if 2 < version_idx:
 						break
 					if item.is_valid_int():
 						version_array[version_idx] = int(item)
-				
-				if version_array[0] == CURRENT_MAJOR and version_array[1] == CURRENT_MINOR and version_array[2] == CURRENT_PATCH and FileAccess.file_exists(OS.get_executable_path().get_base_dir() + "/tagit.pck"):
-					load_tagger()
-					return
+				current_major = version_array[0]
+				current_minor = version_array[1]
+				current_patch = version_array[2]
 	
 	var online_version: Array[int] = await get_online_version()
 	
 	if download_url.is_empty():
-		update_btn.disabled = false
+		update_btn.disabled = true
 		status_label.text = "Invalid update url."
 	else:
 		new_major = online_version[0]
@@ -65,18 +67,19 @@ func _ready() -> void:
 		new_patch = online_version[2]
 		
 		if is_online_higher(new_major, new_minor, new_patch):
-			if CURRENT_MAJOR < new_major or CURRENT_MINOR < new_minor:
-				update_available_lbl.text = "Launch insert-script-file to update."
+			if current_major < new_major or current_minor < new_minor:
+				update_available_lbl.text = "Run with launcher to update."
 				update_btn.disabled = true
 		elif FileAccess.file_exists(OS.get_executable_path().get_base_dir() + "/tagit.pck"):
 			load_tagger()
 			return
 	
 	margin_container.visible = true
+	
 	update_btn.pressed.connect(_on_download_pressed)
 	skip_btn.pressed.connect(_on_skip_pressed)
 	ignore_btn.pressed.connect(_on_dont_update_pressed)
-	update_requester.request_completed.connect(on_request_completed)
+	update_requester.request_completed.connect(_on_request_completed)
 
 
 func _notification(what: int) -> void:
@@ -85,20 +88,24 @@ func _notification(what: int) -> void:
 
 
 func load_tagger() -> void:
-	print("Loading tagger!!!!")
-	return
 	if FileAccess.file_exists(OS.get_executable_path().get_base_dir() + "/tagit.pck"):
 		var window := get_window()
-		window.size = Vector2i(1280, 720)
 		var screen_size: Vector2i = DisplayServer.screen_get_size()
+		window.borderless = false
+		window.unresizable = false
+		window.size = Vector2i(1280, 720)
 		@warning_ignore("integer_division")
 		window.position = Vector2i((screen_size.x - 1280) / 2, (screen_size.y - 720) / 2)
-		splash.visible = true # Splashing while the main application loads.
 		main_panel.visible = false
+		TagIt.show_splash()
+		await get_tree().create_timer(0.5).timeout
+		
 		ProjectSettings.load_resource_pack(
 				OS.get_executable_path().get_base_dir() + "/tagit.pck")
+		
 		var main_scene = load("res://scenes/main_scene.tscn")
 		get_tree().change_scene_to_packed(main_scene)
+		TagIt.hide_splash()
 	else:
 		update_btn.disabled = true
 		ignore_btn.disabled = true
@@ -109,13 +116,11 @@ func load_tagger() -> void:
 
 
 func get_online_version() -> Array[int]:
-	download_url = "http://ipv4.download.thinkbroadband.com/5MB.zip"
-	return [3,0,1]
 	var version_request := HTTPRequest.new()
 	add_child(version_request)
 	version_request.timeout = 10.0
 	var error = version_request.request(
-		"https://api.github.com/Ketei/repos/tagit-v3/releases/latest")
+		"https://api.github.com/repos/Ketei/tagit-launcher/releases/latest")
 	
 	var response = await version_request.request_completed
 	version_request.queue_free()
@@ -139,22 +144,22 @@ func get_online_version() -> Array[int]:
 						online_version.insert(version_position, int(version_number))
 				
 				for item: Dictionary in json_decoder.data["assets"]:
-					if item["name"] == "tag_it.pck":
+					if item["name"] == "tagit.pck":
 						download_url = item["browser_download_url"]
 						break
 				
 				return online_version
-	return Array([CURRENT_MAJOR, CURRENT_MINOR, CURRENT_PATCH], TYPE_INT, &"", null)
+	return Array([current_major, current_minor, current_patch], TYPE_INT, &"", null)
 
 
 func is_online_higher(online_major: int, online_minor: int, online_patch: int) -> bool:
-	if CURRENT_MAJOR < online_major:
+	if current_major < online_major:
 		return true
-	elif CURRENT_MAJOR == online_major:
-		if CURRENT_MINOR < online_minor:
+	elif current_major == online_major:
+		if current_minor < online_minor:
 			return true
-		elif CURRENT_MINOR == online_minor:
-			if CURRENT_PATCH < online_patch:
+		elif current_minor == online_minor:
+			if current_patch < online_patch:
 				return true
 	return false
 
@@ -182,7 +187,7 @@ func _on_dont_update_pressed() -> void:
 	load_tagger()
 
 
-func on_request_completed(result: int, response_code: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
+func _on_request_completed(result: int, response_code: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
 	if result != HTTPRequest.RESULT_SUCCESS or response_code != 200:
 		status_label.text = "Update Failed"
 		# Deleting residual files
