@@ -11,7 +11,6 @@ var new_patch: int = current_patch
 
 var download_url: String = ""
 var downloading_pck: bool = false
-#var pck_byte_size: int = 0
 
 @onready var update_requester: HTTPRequest = $UpdateRequester
 @onready var update_btn: Button = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/ButtonContainer/UpdateBtn
