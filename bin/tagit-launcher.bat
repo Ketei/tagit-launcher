@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-set "launcherVersion=1.0.1"
+set "launcherVersion=1.0.2"
 set "launcherName=%~nx0"
 
 REM Check system requirements
