@@ -29,7 +29,7 @@ func _ready() -> void:
 	get_window().title = "TagIt!"
 	margin_container.visible = false
 	
-	await get_tree().create_timer(0.25).timeout
+	await get_tree().create_timer(0.50).timeout
 	
 	var arguments: PackedStringArray = OS.get_cmdline_user_args()
 	
