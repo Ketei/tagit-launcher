@@ -118,6 +118,7 @@ func load_tagger() -> void:
 				OS.get_executable_path().get_base_dir() + "/tagit.pck")
 		
 		TagIt.tagit_setup()
+		ESixAPI.setup_esix_requester()
 		
 		var main_scene = load("res://scenes/main_scene.tscn")
 		get_tree().change_scene_to_packed(main_scene)
