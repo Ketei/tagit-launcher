@@ -28,6 +28,4 @@ func reload_singletons() -> void:
 	if not eSixAPI.is_node_ready():
 		await eSixAPI.ready
 	
-	push_error("Is node ready: ", TagIt.is_node_ready())
-	
 	singletons_ready.emit()

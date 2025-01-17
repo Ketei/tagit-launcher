@@ -24,7 +24,7 @@ corner_radius_bottom_right = 5
 corner_radius_bottom_left = 5
 
 [node name="Launcher" type="Control"]
-custom_minimum_size = Vector2(680, 240)
+custom_minimum_size = Vector2(680, 290)
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -101,6 +101,11 @@ custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Disable Updates"
+
+[node name="ExitButton" type="Button" parent="MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer"]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+text = "Exit"
 
 [node name="StatusLabel" type="Label" parent="MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer"]
 layout_mode = 2

@@ -30,7 +30,7 @@ SingletonManager="*res://scripts/singleton_manager.gd"
 [display]
 
 window/size/viewport_width=680
-window/size/viewport_height=240
+window/size/viewport_height=290
 window/size/resizable=false
 window/size/borderless=true
 window/energy_saving/keep_screen_on=false

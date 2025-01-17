@@ -21,6 +21,7 @@ var downloading_pck: bool = false
 @onready var margin_container: MarginContainer = $MainPanel/MainContainer/DataContainer/MarginContainer
 @onready var main_panel: PanelContainer = $MainPanel
 @onready var download_progress: ProgressBar = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/PanelContainer/DownloadProgress
+@onready var exit_button: Button = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/ExitButton
 
 
 func _ready() -> void:
@@ -86,6 +87,7 @@ func _ready() -> void:
 	
 	margin_container.visible = true
 	
+	exit_button.pressed.connect(on_exit_pressed)
 	update_btn.pressed.connect(_on_download_pressed)
 	skip_btn.pressed.connect(_on_skip_pressed)
 	ignore_btn.pressed.connect(_on_dont_update_pressed)
@@ -95,6 +97,15 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if download_progress.value != update_requester.get_downloaded_bytes():
 		download_progress.value = update_requester.get_downloaded_bytes()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		on_exit_pressed()
+
+
+func on_exit_pressed() -> void:
+	get_tree().quit()
 
 
 func load_tagger() -> void:
