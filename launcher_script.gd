@@ -35,7 +35,7 @@ func _ready() -> void:
 	
 	for arg in arguments:
 		if arg.begins_with("--update-launcher"):
-			update_launcher(arg.get_slice("=", 1))
+			await update_launcher(arg.get_slice("=", 1))
 			break
 	
 	if arguments.has("--no-update") and FileAccess.file_exists(OS.get_executable_path().get_base_dir() + "/tagit.pck"):
@@ -117,9 +117,10 @@ func load_tagger() -> void:
 		ProjectSettings.load_resource_pack(
 				OS.get_executable_path().get_base_dir() + "/tagit.pck")
 		
+		TagIt.tagit_setup()
+		
 		var main_scene = load("res://scenes/main_scene.tscn")
 		get_tree().change_scene_to_packed(main_scene)
-		TagIt.hide_splash()
 	else:
 		update_btn.disabled = true
 		ignore_btn.disabled = true
