@@ -21,3 +21,6 @@ data_info.gd.bak
 
 # Windows-specific
 desktop.ini
+
+# macOS-specific
+.DS_Store

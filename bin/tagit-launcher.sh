@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-launcherVersion="1.0.0"
+launcherVersion="1.0.1"
 launcherName=$(basename "$0")
 
 # Check system requirements
