@@ -102,7 +102,7 @@ if exist "tagit.windows.x86_64.exe" (
     if exist "tagit.exe" del /f "tagit.exe"
     ren "tagit.windows.x86_64.exe" "tagit.exe"
 )
-echo "!releaseVersion!">"version"
+echo !releaseVersion!>version
 start "" "tagit.exe" -- --no-update "!launcherUpdateArg!"
 exit /b 0
 
