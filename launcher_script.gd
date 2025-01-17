@@ -24,6 +24,7 @@ var downloading_pck: bool = false
 
 
 func _ready() -> void:
+	SingletonManager.singletons_ready.connect(_on_singletons_ready)
 	set_process(false)
 	download_progress.visible = false
 	get_window().title = "TagIt!"
@@ -96,39 +97,44 @@ func _process(_delta: float) -> void:
 		download_progress.value = update_requester.get_downloaded_bytes()
 
 
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_CLOSE_REQUEST:
-		return
-
-
 func load_tagger() -> void:
 	if FileAccess.file_exists(OS.get_executable_path().get_base_dir() + "/tagit.pck"):
-		var window := get_window()
-		var screen_size: Vector2i = DisplayServer.screen_get_size()
-		window.borderless = false
-		window.unresizable = false
-		window.size = Vector2i(1280, 720)
-		@warning_ignore("integer_division")
-		window.position = Vector2i((screen_size.x - 1280) / 2, (screen_size.y - 720) / 2)
-		main_panel.visible = false
-		TagIt.show_splash()
-		await get_tree().create_timer(0.5).timeout
-		
-		ProjectSettings.load_resource_pack(
+		var successful_loading: bool = ProjectSettings.load_resource_pack(
 				OS.get_executable_path().get_base_dir() + "/tagit.pck")
 		
-		TagIt.tagit_setup()
-		ESixAPI.setup_esix_requester()
+		if not successful_loading:
+			push_error("PCK loading returned false.")
+			status_label.text = "Couldn't load \"tagit.pck\". Exiting."
+			await get_tree().create_timer(5.0).timeout
+			get_tree().quit()
+		else:
+			SingletonManager.reload_singletons()
 		
-		var main_scene = load("res://scenes/main_scene.tscn")
-		get_tree().change_scene_to_packed(main_scene)
 	else:
 		update_btn.disabled = true
 		ignore_btn.disabled = true
 		skip_btn.disabled = true
+		push_error("PCK not found at: " + OS.get_executable_path().get_base_dir() + "/tagit.pck")
 		status_label.text = "Couldn't find \"tagit.pck\". Exiting"
 		await get_tree().create_timer(5.0).timeout
 		get_tree().quit()
+
+
+func _on_singletons_ready() -> void:
+	var window := get_window()
+	var screen_size: Vector2i = DisplayServer.screen_get_size()
+	window.borderless = false
+	window.unresizable = false
+	window.size = Vector2i(1280, 720)
+	@warning_ignore("integer_division")
+	window.position = Vector2i((screen_size.x - 1280) / 2, (screen_size.y - 720) / 2)
+	main_panel.visible = false
+	SingletonManager.TagIt.show_splash()
+	
+	await get_tree().create_timer(0.5).timeout
+	
+	var main_scene = load("res://scenes/main_scene.tscn")
+	get_tree().change_scene_to_packed(main_scene)
 
 
 func get_online_version() -> Array[int]:
@@ -183,7 +189,7 @@ func update_launcher(launcher_filename: String) -> void:
 		json_decoder.parse(response[3].get_string_from_utf8())
 		
 		if typeof(json_decoder.data) != TYPE_DICTIONARY or not json_decoder.data.has("assets"):
-			TagIt.log_message("Couldn't update launcher.", DataManager.LogLevel.ERROR)
+			push_error("Couldn't update launcher: ", typeof(json_decoder.data),"/","false" if typeof(json_decoder.data) == TYPE_DICTIONARY else "null")
 			return
 		
 		var target_launcher: String = "tagit-launcher.bat" if launcher_filename.get_extension().to_lower() == "bat" else "tagit-launcher.sh"
@@ -209,9 +215,7 @@ func update_launcher(launcher_filename: String) -> void:
 		var results: Array = await launcher_updater.request_completed
 		
 		if results[0] != HTTPRequest.RESULT_SUCCESS or results[1] != 200:
-			TagIt.log_message(
-					str("Error downloading launcher: ", results[0], "/", results[1]),
-					DataManager.LogLevel.ERROR)
+			push_error("Error downloading launcher: ", results[0], "/", results[1])
 			# Removing residual files on failure
 			if FileAccess.file_exists(base_dir + "_launcher." + target_launcher.get_extension()):
 				OS.move_to_trash(base_dir + "_launcher." + target_launcher.get_extension())
@@ -219,7 +223,7 @@ func update_launcher(launcher_filename: String) -> void:
 			DirAccess.rename_absolute(
 					base_dir + "_launcher." + target_launcher.get_extension(),
 					base_dir + target_launcher)
-			TagIt.log_message("Launcher updated successfully!", DataManager.LogLevel.INFO)
+			print("Launcher updated successfully!")
 		
 		launcher_updater.queue_free()
 
