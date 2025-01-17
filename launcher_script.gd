@@ -174,11 +174,10 @@ func update_launcher(launcher_filename: String) -> void:
 	add_child(launcher_http)
 	launcher_http.timeout = 10.0
 	var error = launcher_http.request(
-		"https://api.github.com/repos/Ketei/tagit-launcher/releases/latest")
+		"https://api.github.com/repos/Ketei/tagit-v3/releases/latest")
 	
 	var response = await launcher_http.request_completed
 	launcher_http.queue_free()
-	
 	if error == OK and response[0] == HTTPRequest.RESULT_SUCCESS and response[1] == 200:
 		var json_decoder = JSON.new()
 		json_decoder.parse(response[3].get_string_from_utf8())
