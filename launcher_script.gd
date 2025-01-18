@@ -21,7 +21,8 @@ var downloading_pck: bool = false
 @onready var margin_container: MarginContainer = $MainPanel/MainContainer/DataContainer/MarginContainer
 @onready var main_panel: PanelContainer = $MainPanel
 @onready var download_progress: ProgressBar = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/PanelContainer/DownloadProgress
-@onready var exit_button: Button = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/ExitButton
+@onready var continue_button: Button = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/PathContainer/ContinueButton
+@onready var exit_button: Button = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/PathContainer/ExitButton
 
 
 func _ready() -> void:
@@ -85,9 +86,11 @@ func _ready() -> void:
 			load_tagger()
 			return
 	
+	continue_button.disabled = not FileAccess.file_exists(OS.get_executable_path().get_base_dir() + "/tagit.pck")
 	margin_container.visible = true
 	
-	exit_button.pressed.connect(on_exit_pressed)
+	exit_button.pressed.connect(_on_exit_pressed)
+	continue_button.pressed.connect(_on_continue_pressed)
 	update_btn.pressed.connect(_on_download_pressed)
 	skip_btn.pressed.connect(_on_skip_pressed)
 	ignore_btn.pressed.connect(_on_dont_update_pressed)
@@ -101,14 +104,23 @@ func _process(_delta: float) -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
-		on_exit_pressed()
+		_on_exit_pressed()
 
 
-func on_exit_pressed() -> void:
+func _on_exit_pressed() -> void:
 	get_tree().quit()
 
 
+func _on_continue_pressed() -> void:
+	load_tagger()
+
+
 func load_tagger() -> void:
+	update_btn.disabled = true
+	ignore_btn.disabled = true
+	skip_btn.disabled = true
+	continue_button.disabled = true
+	
 	if FileAccess.file_exists(OS.get_executable_path().get_base_dir() + "/tagit.pck"):
 		var successful_loading: bool = ProjectSettings.load_resource_pack(
 				OS.get_executable_path().get_base_dir() + "/tagit.pck")
@@ -122,9 +134,6 @@ func load_tagger() -> void:
 			SingletonManager.reload_singletons()
 		
 	else:
-		update_btn.disabled = true
-		ignore_btn.disabled = true
-		skip_btn.disabled = true
 		push_error("PCK not found at: " + OS.get_executable_path().get_base_dir() + "/tagit.pck")
 		status_label.text = "Couldn't find \"tagit.pck\". Exiting"
 		await get_tree().create_timer(5.0).timeout

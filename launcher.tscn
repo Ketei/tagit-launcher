@@ -102,9 +102,19 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "Disable Updates"
 
-[node name="ExitButton" type="Button" parent="MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer"]
+[node name="PathContainer" type="HBoxContainer" parent="MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer"]
+layout_mode = 2
+
+[node name="ContinueButton" type="Button" parent="MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/PathContainer"]
 custom_minimum_size = Vector2(0, 38)
 layout_mode = 2
+size_flags_horizontal = 3
+text = "Remind me later"
+
+[node name="ExitButton" type="Button" parent="MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/PathContainer"]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+size_flags_horizontal = 3
 text = "Exit"
 
 [node name="StatusLabel" type="Label" parent="MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer"]
