@@ -142,12 +142,10 @@ func load_tagger() -> void:
 
 func _on_singletons_ready() -> void:
 	var window := get_window()
-	var screen_size: Vector2i = DisplayServer.screen_get_size()
+	window.size = Vector2i(1280, 720)
+	window.move_to_center()
 	window.borderless = false
 	window.unresizable = false
-	window.size = Vector2i(1280, 720)
-	@warning_ignore("integer_division")
-	window.position = Vector2i((screen_size.x - 1280) / 2, (screen_size.y - 720) / 2)
 	main_panel.visible = false
 	SingletonManager.TagIt.show_splash()
 	
