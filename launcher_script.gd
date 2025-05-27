@@ -17,11 +17,11 @@ var progress_tracking: int = 0
 @onready var update_btn: Button = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/ButtonContainer/UpdateBtn
 @onready var skip_btn: Button = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/ButtonContainer/SkipBtn
 @onready var ignore_btn: Button = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/ButtonContainer/IgnoreBtn
-@onready var status_label: Label = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/StatusLabel
+@onready var status_label: Label = $MainPanel/MainContainer/DataContainer/PanelContainer/VBoxContainer/StatusLabel
 @onready var update_available_lbl: Label = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/UpdateAvailableLbl
 @onready var margin_container: MarginContainer = $MainPanel/MainContainer/DataContainer/MarginContainer
 @onready var main_panel: PanelContainer = $MainPanel
-@onready var download_progress: ProgressBar = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/PanelContainer/DownloadProgress
+@onready var download_progress: ProgressBar = $MainPanel/MainContainer/DataContainer/PanelContainer/VBoxContainer/DownloadProgress
 @onready var continue_button: Button = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/PathContainer/ContinueButton
 @onready var exit_button: Button = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/PathContainer/ExitButton
 
@@ -36,16 +36,19 @@ func _ready() -> void:
 	await get_tree().create_timer(0.50).timeout
 	
 	var arguments: PackedStringArray = OS.get_cmdline_user_args()
+	var launcher_update: bool = false
 	
 	for arg in arguments:
 		if arg.begins_with("--update-launcher"):
-			download_progress.visible = true
+			launcher_update = true
 			await update_launcher(arg.get_slice("=", 1))
 			download_progress.value = 0
 			download_progress.visible = false
 			break
 	
 	if arguments.has("--no-update") and FileAccess.file_exists(OS.get_executable_path().get_base_dir() + "/tagit.pck"):
+		if launcher_update:
+			await get_tree().create_timer(1.0).timeout
 		load_tagger()
 		return
 	
@@ -307,7 +310,6 @@ func update_launcher(launcher_path: String) -> void:
 			launcher_path += "." + ext
 	
 	var target_launcher: String = "tagit-launcher.exe" if ext == "exe" else "tagit-launcher"
-	
 	var launcher_url: String = ""
 	
 	for item: Dictionary in json_decoder.data["assets"]:
@@ -326,6 +328,7 @@ func update_launcher(launcher_path: String) -> void:
 	
 	update_requester.download_file = base_dir + "_launcher"
 	status_label.text = "Updating Launcher"
+	download_progress.visible = true
 	
 	# Making a timer so we can monitor the download. If it stalls, we cancel it.
 	var fallback_timer: Timer = Timer.new()
