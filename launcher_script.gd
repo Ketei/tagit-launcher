@@ -2,7 +2,7 @@ extends Control
 
 
 var current_major: int = 3
-var current_minor: int = 3
+var current_minor: int = 4
 var current_patch: int = 0
 
 var new_major: int = current_major
@@ -11,6 +11,7 @@ var new_patch: int = current_patch
 
 var download_url: String = ""
 var downloading_pck: bool = false
+var progress_tracking: int = 0
 
 @onready var update_requester: HTTPRequest = $UpdateRequester
 @onready var update_btn: Button = $MainPanel/MainContainer/DataContainer/MarginContainer/InfoContainer/ButtonContainer/UpdateBtn
@@ -38,7 +39,10 @@ func _ready() -> void:
 	
 	for arg in arguments:
 		if arg.begins_with("--update-launcher"):
+			download_progress.visible = true
 			await update_launcher(arg.get_slice("=", 1))
+			download_progress.value = 0
+			download_progress.visible = false
 			break
 	
 	if arguments.has("--no-update") and FileAccess.file_exists(OS.get_executable_path().get_base_dir() + "/tagit.pck"):
@@ -193,7 +197,7 @@ func get_online_version() -> Array[int]:
 	return Array([current_major, current_minor, current_patch], TYPE_INT, &"", null)
 
 
-func update_launcher(launcher_filename: String) -> void:
+func update_launcher(launcher_path: String) -> void:
 	var launcher_http := HTTPRequest.new()
 	add_child(launcher_http)
 	launcher_http.timeout = 10.0
@@ -210,40 +214,85 @@ func update_launcher(launcher_filename: String) -> void:
 			push_error("Couldn't update launcher: ", typeof(json_decoder.data),"/","false" if typeof(json_decoder.data) == TYPE_DICTIONARY else "null")
 			return
 		
-		var target_launcher: String = "tagit-launcher.bat" if launcher_filename.get_extension().to_lower() == "bat" else "tagit-launcher.sh"
+		var ext: String = launcher_path.get_extension().to_lower()
+		
+		if ext == "bat" or ext == "sh":
+			ext = "exe" if ext == "bat" else ""
+			launcher_path = launcher_path.get_basename()
+			if not ext.is_empty():
+				launcher_path += "." + ext
+		
+		var target_launcher: String = "tagit-launcher.exe" if ext == "exe" else "tagit-launcher"
 		
 		var launcher_url: String = ""
 		
 		for item: Dictionary in json_decoder.data["assets"]:
 			if item["name"] == target_launcher:
 				launcher_url = item["browser_download_url"]
+				download_progress.max_value = item["size"]
 				break
 		
 		if launcher_url.is_empty():
 			return
 		
-		var base_dir: String = OS.get_executable_path().get_base_dir() + "/"
+		var base_dir: String = ProjectSettings.globalize_path("user://")
 		
-		var launcher_updater := HTTPRequest.new()
-		add_child(launcher_updater)
-		launcher_updater.timeout = 30.0
+		if not base_dir.ends_with("/"):
+			base_dir += "/"
 		
-		launcher_updater.download_file = base_dir + "_launcher." + target_launcher.get_extension()
-		launcher_updater.request(launcher_url)
-		var results: Array = await launcher_updater.request_completed
+		update_requester.download_file = base_dir + "_launcher"
+		status_label.text = "Updating Launcher"
+		
+		# Making a timer so we can monitor the download. If it stalls, we cancel it.
+		var fallback_timer: Timer = Timer.new()
+		fallback_timer.wait_time = 5.0
+		fallback_timer.autostart = true
+		fallback_timer.one_shot = false
+		
+		# Timer will check if the download is progressing. If not, it'll cancel it
+		# and continue.
+		fallback_timer.timeout.connect(_on_file_request_timeout)
+		add_child(fallback_timer)
+		set_process(true) # Enable process to display download progress.
+		update_requester.request(launcher_url)
+		var results: Array = await update_requester.request_completed
+		set_process(false)
+		if not fallback_timer.is_stopped():
+			fallback_timer.stop()
+			fallback_timer.timeout.disconnect(_on_file_request_timeout)
+			fallback_timer.queue_free()
 		
 		if results[0] != HTTPRequest.RESULT_SUCCESS or results[1] != 200:
 			push_error("Error downloading launcher: ", results[0], "/", results[1])
 			# Removing residual files on failure
-			if FileAccess.file_exists(base_dir + "_launcher." + target_launcher.get_extension()):
-				OS.move_to_trash(base_dir + "_launcher." + target_launcher.get_extension())
+			if FileAccess.file_exists(base_dir + "_launcher." + ext):
+				OS.move_to_trash(base_dir + "_launcher." + ext)
 		else:
-			DirAccess.rename_absolute(
-					base_dir + "_launcher." + target_launcher.get_extension(),
-					base_dir + target_launcher)
-			print("Launcher updated successfully!")
-		
-		launcher_updater.queue_free()
+			var op_status: int = DirAccess.rename_absolute(
+					base_dir + "_launcher." + ext,
+					launcher_path)
+			if op_status == OK:
+				print("Launcher updated successfully!")
+				status_label.text = "Launcher updated to version " + str(json_decoder.data["tag_name"])
+			else:
+				var status_string: String = str("Couldn't update launcher (Error: ", error_string(op_status), ")")
+				print(status_string)
+				status_label.text = status_string
+				if FileAccess.file_exists(base_dir + "_launcher." + ext):
+					OS.move_to_trash(base_dir + "_launcher." + ext)
+
+
+func _on_file_request_timeout() -> void:
+	if progress_tracking == update_requester.get_downloaded_bytes():
+		update_requester.cancel_request()
+		update_requester.request_completed.emit(
+				HTTPRequest.RESULT_REQUEST_FAILED,
+				0,
+				PackedStringArray(),
+				PackedByteArray())
+	else:
+		progress_tracking = update_requester.get_downloaded_bytes()
+	
 
 
 func is_online_higher(online_major: int, online_minor: int, online_patch: int) -> bool:
