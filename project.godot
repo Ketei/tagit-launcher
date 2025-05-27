@@ -35,10 +35,6 @@ window/size/resizable=false
 window/size/borderless=true
 window/energy_saving/keep_screen_on=false
 
-[editor]
-
-run/main_run_args="-- --launcher.name=asdfkaka"
-
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/SmoothScroll/plugin.cfg", "res://addons/godot-sqlite/plugin.cfg", "res://addons/godotgif/plugin.cfg", "res://addons/tnowe_extra_controls/plugin.cfg")
