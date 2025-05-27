@@ -265,11 +265,11 @@ func update_launcher(launcher_path: String) -> void:
 		if results[0] != HTTPRequest.RESULT_SUCCESS or results[1] != 200:
 			push_error("Error downloading launcher: ", results[0], "/", results[1])
 			# Removing residual files on failure
-			if FileAccess.file_exists(base_dir + "_launcher." + ext):
-				OS.move_to_trash(base_dir + "_launcher." + ext)
+			if FileAccess.file_exists(base_dir + "_launcher"):
+				OS.move_to_trash(base_dir + "_launcher")
 		else:
 			var op_status: int = DirAccess.rename_absolute(
-					base_dir + "_launcher." + ext,
+					base_dir + "_launcher",
 					launcher_path)
 			if op_status == OK:
 				print("Launcher updated successfully!")
@@ -278,8 +278,8 @@ func update_launcher(launcher_path: String) -> void:
 				var status_string: String = str("Couldn't update launcher (Error: ", error_string(op_status), ")")
 				print(status_string)
 				status_label.text = status_string
-				if FileAccess.file_exists(base_dir + "_launcher." + ext):
-					OS.move_to_trash(base_dir + "_launcher." + ext)
+				if FileAccess.file_exists(base_dir + "_launcher"):
+					OS.move_to_trash(base_dir + "_launcher")
 
 
 func _on_file_request_timeout() -> void:
