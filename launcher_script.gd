@@ -119,6 +119,33 @@ func _on_continue_pressed() -> void:
 	load_tagger()
 
 
+func _on_singletons_ready() -> void:
+	var window := get_window()
+	window.size = Vector2i(1280, 720)
+	window.move_to_center()
+	window.borderless = false
+	window.unresizable = false
+	main_panel.visible = false
+	SingletonManager.TagIt.show_splash()
+	
+	await get_tree().create_timer(0.5).timeout
+	
+	var main_scene = load("res://scenes/main_scene.tscn")
+	get_tree().change_scene_to_packed(main_scene)
+
+
+func _on_file_request_timeout() -> void:
+	if progress_tracking == update_requester.get_downloaded_bytes():
+		update_requester.cancel_request()
+		update_requester.request_completed.emit(
+				HTTPRequest.RESULT_REQUEST_FAILED,
+				0,
+				PackedStringArray(),
+				PackedByteArray())
+	else:
+		progress_tracking = update_requester.get_downloaded_bytes()
+
+
 func load_tagger() -> void:
 	update_btn.disabled = true
 	ignore_btn.disabled = true
@@ -142,169 +169,6 @@ func load_tagger() -> void:
 		status_label.text = "Couldn't find \"tagit.pck\". Exiting"
 		await get_tree().create_timer(5.0).timeout
 		get_tree().quit()
-
-
-func _on_singletons_ready() -> void:
-	var window := get_window()
-	window.size = Vector2i(1280, 720)
-	window.move_to_center()
-	window.borderless = false
-	window.unresizable = false
-	main_panel.visible = false
-	SingletonManager.TagIt.show_splash()
-	
-	await get_tree().create_timer(0.5).timeout
-	
-	var main_scene = load("res://scenes/main_scene.tscn")
-	get_tree().change_scene_to_packed(main_scene)
-
-
-func get_online_version() -> Array[int]:
-	var version_request := HTTPRequest.new()
-	add_child(version_request)
-	version_request.timeout = 10.0
-	var error = version_request.request(
-		"https://api.github.com/repos/Ketei/tagit-launcher/releases/latest")
-	
-	var response = await version_request.request_completed
-	version_request.queue_free()
-	
-	if error == OK and response[0] == OK and response[1] == 200:
-		var json_decoder = JSON.new()
-		json_decoder.parse(response[3].get_string_from_utf8())
-		
-		if typeof(json_decoder.data) == TYPE_DICTIONARY:
-			if json_decoder.data.has_all(["tag_name", "assets"]):
-				var version_text: String = json_decoder.data["tag_name"].trim_prefix("v")
-				var online_version: Array[int] = []
-				online_version.resize(3)
-				
-				var version_position: int = -1
-				for version_number in version_text.split(".", false):
-					version_position += 1
-					if 2 < version_position:
-						break
-					if version_number.is_valid_int():
-						online_version.insert(version_position, int(version_number))
-				
-				for item: Dictionary in json_decoder.data["assets"]:
-					if item["name"] == "tagit.pck":
-						download_url = item["browser_download_url"]
-						download_progress.max_value = item["size"]
-						break
-				
-				return online_version
-	return Array([current_major, current_minor, current_patch], TYPE_INT, &"", null)
-
-
-func update_launcher(launcher_path: String) -> void:
-	var launcher_http := HTTPRequest.new()
-	add_child(launcher_http)
-	launcher_http.timeout = 10.0
-	var error = launcher_http.request(
-		"https://api.github.com/repos/Ketei/tagit-v3/releases/latest")
-	
-	var response = await launcher_http.request_completed
-	launcher_http.queue_free()
-	if error == OK and response[0] == HTTPRequest.RESULT_SUCCESS and response[1] == 200:
-		var json_decoder = JSON.new()
-		json_decoder.parse(response[3].get_string_from_utf8())
-		
-		if typeof(json_decoder.data) != TYPE_DICTIONARY or not json_decoder.data.has("assets"):
-			push_error("Couldn't update launcher: ", typeof(json_decoder.data),"/","false" if typeof(json_decoder.data) == TYPE_DICTIONARY else "null")
-			return
-		
-		var ext: String = launcher_path.get_extension().to_lower()
-		
-		if ext == "bat" or ext == "sh":
-			ext = "exe" if ext == "bat" else ""
-			launcher_path = launcher_path.get_basename()
-			if not ext.is_empty():
-				launcher_path += "." + ext
-		
-		var target_launcher: String = "tagit-launcher.exe" if ext == "exe" else "tagit-launcher"
-		
-		var launcher_url: String = ""
-		
-		for item: Dictionary in json_decoder.data["assets"]:
-			if item["name"] == target_launcher:
-				launcher_url = item["browser_download_url"]
-				download_progress.max_value = item["size"]
-				break
-		
-		if launcher_url.is_empty():
-			return
-		
-		var base_dir: String = ProjectSettings.globalize_path("user://")
-		
-		if not base_dir.ends_with("/"):
-			base_dir += "/"
-		
-		update_requester.download_file = base_dir + "_launcher"
-		status_label.text = "Updating Launcher"
-		
-		# Making a timer so we can monitor the download. If it stalls, we cancel it.
-		var fallback_timer: Timer = Timer.new()
-		fallback_timer.wait_time = 5.0
-		fallback_timer.autostart = true
-		fallback_timer.one_shot = false
-		
-		# Timer will check if the download is progressing. If not, it'll cancel it
-		# and continue.
-		fallback_timer.timeout.connect(_on_file_request_timeout)
-		add_child(fallback_timer)
-		set_process(true) # Enable process to display download progress.
-		update_requester.request(launcher_url)
-		var results: Array = await update_requester.request_completed
-		set_process(false)
-		if not fallback_timer.is_stopped():
-			fallback_timer.stop()
-			fallback_timer.timeout.disconnect(_on_file_request_timeout)
-			fallback_timer.queue_free()
-		
-		if results[0] != HTTPRequest.RESULT_SUCCESS or results[1] != 200:
-			push_error("Error downloading launcher: ", results[0], "/", results[1])
-			# Removing residual files on failure
-			if FileAccess.file_exists(base_dir + "_launcher"):
-				OS.move_to_trash(base_dir + "_launcher")
-		else:
-			var op_status: int = DirAccess.rename_absolute(
-					base_dir + "_launcher",
-					launcher_path)
-			if op_status == OK:
-				print("Launcher updated successfully!")
-				status_label.text = "Launcher updated to version " + str(json_decoder.data["tag_name"])
-			else:
-				var status_string: String = str("Couldn't update launcher (Error: ", error_string(op_status), ")")
-				print(status_string)
-				status_label.text = status_string
-				if FileAccess.file_exists(base_dir + "_launcher"):
-					OS.move_to_trash(base_dir + "_launcher")
-
-
-func _on_file_request_timeout() -> void:
-	if progress_tracking == update_requester.get_downloaded_bytes():
-		update_requester.cancel_request()
-		update_requester.request_completed.emit(
-				HTTPRequest.RESULT_REQUEST_FAILED,
-				0,
-				PackedStringArray(),
-				PackedByteArray())
-	else:
-		progress_tracking = update_requester.get_downloaded_bytes()
-	
-
-
-func is_online_higher(online_major: int, online_minor: int, online_patch: int) -> bool:
-	if current_major < online_major:
-		return true
-	elif current_major == online_major:
-		if current_minor < online_minor:
-			return true
-		elif current_minor == online_minor:
-			if current_patch < online_patch:
-				return true
-	return false
 
 
 func _on_download_pressed() -> void:
@@ -370,3 +234,145 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 	
 	await get_tree().create_timer(2.0).timeout
 	load_tagger()
+
+
+func get_online_version() -> Array[int]:
+	var version_request := HTTPRequest.new()
+	add_child(version_request)
+	version_request.timeout = 10.0
+	var error = version_request.request(
+		"https://api.github.com/repos/Ketei/tagit-launcher/releases/latest")
+	
+	var response = await version_request.request_completed
+	version_request.queue_free()
+	
+	if error == OK and response[0] == OK and response[1] == 200:
+		var json_decoder = JSON.new()
+		json_decoder.parse(response[3].get_string_from_utf8())
+		
+		if typeof(json_decoder.data) == TYPE_DICTIONARY:
+			if json_decoder.data.has_all(["tag_name", "assets"]):
+				var version_text: String = json_decoder.data["tag_name"].trim_prefix("v")
+				var online_version: Array[int] = []
+				online_version.resize(3)
+				
+				var version_position: int = -1
+				for version_number in version_text.split(".", false):
+					version_position += 1
+					if 2 < version_position:
+						break
+					if version_number.is_valid_int():
+						online_version.insert(version_position, int(version_number))
+				
+				for item: Dictionary in json_decoder.data["assets"]:
+					if item["name"] == "tagit.pck":
+						download_url = item["browser_download_url"]
+						download_progress.max_value = item["size"]
+						break
+				
+				return online_version
+	return Array([current_major, current_minor, current_patch], TYPE_INT, &"", null)
+
+
+func update_launcher(launcher_path: String) -> void:
+	var launcher_http := HTTPRequest.new()
+	add_child(launcher_http)
+	launcher_http.timeout = 10.0
+	var error = launcher_http.request(
+		"https://api.github.com/repos/Ketei/tagit-v3/releases/latest")
+	
+	var response = await launcher_http.request_completed
+	launcher_http.queue_free()
+	
+	if error != OK or response[0] != HTTPRequest.RESULT_SUCCESS or response[1] != 200:
+		return
+		
+	var json_decoder = JSON.new()
+	json_decoder.parse(response[3].get_string_from_utf8())
+	
+	if typeof(json_decoder.data) != TYPE_DICTIONARY or not json_decoder.data.has("assets"):
+		push_error("Couldn't update launcher: ", typeof(json_decoder.data),"/","false" if typeof(json_decoder.data) == TYPE_DICTIONARY else "null")
+		return
+	
+	var ext: String = launcher_path.get_extension().to_lower()
+	
+	if not ext in ["bat", "sh", "exe", ""]:
+		push_error("Couldn't update launcher. Launcer is invalid file format.")
+		return
+	
+	if ext == "bat" or ext == "sh":
+		ext = "exe" if ext == "bat" else ""
+		launcher_path = launcher_path.get_basename()
+		if not ext.is_empty():
+			launcher_path += "." + ext
+	
+	var target_launcher: String = "tagit-launcher.exe" if ext == "exe" else "tagit-launcher"
+	
+	var launcher_url: String = ""
+	
+	for item: Dictionary in json_decoder.data["assets"]:
+		if item["name"] == target_launcher:
+			launcher_url = item["browser_download_url"]
+			download_progress.max_value = item["size"]
+			break
+	
+	if launcher_url.is_empty():
+		return
+	
+	var base_dir: String = ProjectSettings.globalize_path("user://")
+	
+	if not base_dir.ends_with("/"):
+		base_dir += "/"
+	
+	update_requester.download_file = base_dir + "_launcher"
+	status_label.text = "Updating Launcher"
+	
+	# Making a timer so we can monitor the download. If it stalls, we cancel it.
+	var fallback_timer: Timer = Timer.new()
+	fallback_timer.wait_time = 5.0
+	fallback_timer.autostart = true
+	fallback_timer.one_shot = false
+	
+	# Timer will check if the download is progressing. If not, it'll cancel it
+	# and continue.
+	fallback_timer.timeout.connect(_on_file_request_timeout)
+	add_child(fallback_timer)
+	set_process(true) # Enable process to display download progress.
+	update_requester.request(launcher_url)
+	var results: Array = await update_requester.request_completed
+	set_process(false)
+	if not fallback_timer.is_stopped():
+		fallback_timer.stop()
+		fallback_timer.timeout.disconnect(_on_file_request_timeout)
+		fallback_timer.queue_free()
+	
+	if results[0] != HTTPRequest.RESULT_SUCCESS or results[1] != 200:
+		push_error("Error downloading launcher: ", results[0], "/", results[1])
+		# Removing residual files on failure
+		if FileAccess.file_exists(base_dir + "_launcher"):
+			OS.move_to_trash(base_dir + "_launcher")
+	else:
+		var op_status: int = DirAccess.rename_absolute(
+				base_dir + "_launcher",
+				launcher_path)
+		if op_status == OK:
+			print("Launcher updated successfully!")
+			status_label.text = "Launcher updated to version " + str(json_decoder.data["tag_name"])
+		else:
+			var status_string: String = str("Couldn't update launcher (Error: ", error_string(op_status), ")")
+			print(status_string)
+			status_label.text = status_string
+			if FileAccess.file_exists(base_dir + "_launcher"):
+				OS.move_to_trash(base_dir + "_launcher")
+
+
+func is_online_higher(online_major: int, online_minor: int, online_patch: int) -> bool:
+	if current_major < online_major:
+		return true
+	elif current_major == online_major:
+		if current_minor < online_minor:
+			return true
+		elif current_minor == online_minor:
+			if current_patch < online_patch:
+				return true
+	return false
