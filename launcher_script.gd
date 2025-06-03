@@ -2,7 +2,7 @@ extends Control
 
 
 var current_major: int = 3
-var current_minor: int = 4
+var current_minor: int = 5
 var current_patch: int = 0
 
 var new_major: int = current_major
