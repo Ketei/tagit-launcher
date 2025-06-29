@@ -124,11 +124,11 @@ func _on_continue_pressed() -> void:
 
 func _on_singletons_ready() -> void:
 	var window := get_window()
-	window.size = Vector2i(1280, 720)
-	window.move_to_center()
 	window.borderless = false
 	window.unresizable = false
 	main_panel.visible = false
+	window.size = Vector2i(1280, 720)
+	window.move_to_center()
 	SingletonManager.TagIt.show_splash()
 	
 	await get_tree().create_timer(0.5).timeout
